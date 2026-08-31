@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andon Devanning</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+        }
+
+        .table-container {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        thead th {
+            background: linear-gradient(135deg, #0d6efd, #0a58ca);
+            color: white !important;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: none !important;
+            white-space: nowrap;
+        }
+
+        tbody tr:hover {
+            background-color: #eaf4ff !important;
+        }
+
+        .seq-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .trigger-badge {
+            display: inline-block;
+            background: #6f42c1;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .time-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+        }
+
+        .zero-cell {
+            color: #adb5bd;
+            font-style: italic;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 25px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 10px 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .info-badge {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid py-4">
+        <div class="container">
+            <div class="table-container bg-white">
+                <!-- Header -->
+                <div class="page-header">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h2 class="mb-2"><i class="bi bi-box-seam-fill me-2"></i>Andon Devanning</h2>
+                            <div class="d-flex flex-wrap gap-2" id="headerInfo">
+                                <span class="info-badge">
+                                    <i class="bi bi-calendar-event"></i> 13/Ago - Programação Diária
+                                </span>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <div class="stat-card text-center">
+                                <div class="label"><i class="bi bi-boxes me-1"></i>Containers</div>
+                                <div class="value" id="totalContainers">0</div>
+                            </div>
+                            <div class="stat-card text-center">
+                                <div class="label"><i class="bi bi-gear-fill me-1"></i>Assembly Total</div>
+                                <div class="value" id="assemblyTotal">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="p-3 bg-light border-bottom">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-calendar3"></i></span>
+                                <select class="form-select" id="dateSelector">
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                <input type="text" id="searchInput" class="form-control"
+                                    placeholder="Buscar por Renban, Container, Armador...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="dockFilter">
+                                <option value="">Todos os Docks</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="window.print()">
+                                <i class="bi bi-printer me-1"></i> Imprimir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="andonTable">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Seq.</th>
+                                <th>Trigger</th>
+                                <th>Renban</th>
+                                <th>Container</th>
+                                <th>Transportadora</th>
+                                <th>Re-van</th>
+                                <th>Armador</th>
+                                <th>Dock</th>
+                                <th>Horário</th>
+                                <th>Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Rows generated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3 bg-light border-top text-center text-muted small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Total de <strong id="totalCount">0</strong> containers |
+                    Assembly acumulado: <strong id="footerAssembly">0</strong> unidades
+                    <span id="lastUpdateInfo" class="ms-2"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ===== CONFIGURATION =====
+        const TRIGGER_INCREMENT = 50;
+        const AUTO_REFRESH_MS = 30000;
+        const BASE_TIME = "06:12:00";
+        const SECONDS_PER_TRIGGER = 108;
+        const SCHEDULE_URL = 'ContainerSchedule.json';
+        const OUTPUT_URL = 'output.json';
+
+        // ===== STATE =====
+        let andonData = [];           // ALL rows (all days)
+        let availableDates = [];      // Sorted list of unique dates
+        let selectedDate = null;      // Currently selected date
+        let externalData = {
+            assembly: 0,
+            timestamp: '',
+            panelId: '',
+            scheduleTimestamp: '',
+            totalRows: 0
+        };
+
+        // ===== EXCEL SERIAL DATE → Date object =====
+        function excelSerialToDate(serial) {
+            if (isNaN(serial) || String(serial).includes('/')) return null;
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+            return new Date(excelEpoch.getTime() + Number(serial) * 86400000);
+        }
+
+        // ===== FORMAT DATE AS DD/MM/YYYY =====
+        function formatDate(dateInput) {
+            // If it's an Excel serial number
+            const asDate = excelSerialToDate(dateInput);
+            if (asDate) {
+                const dd = String(asDate.getUTCDate()).padStart(2, '0');
+                const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
+                const yyyy = asDate.getUTCFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+            }
+            // Already a string
+            return String(dateInput);
+        }
+
+        // ===== GET SORTABLE KEY (for date ordering) =====
+        function getDateKey(dateInput) {
+            const asDate = excelSerialToDate(dateInput);
+            if (asDate) return asDate.toISOString().slice(0, 10); // YYYY-MM-DD
+            return String(dateInput);
+        }
+
+        // ===== CALCULATE DELIVERY TIME =====
+        function calculateHorario(trigger) {
+            const [bh, bm, bs] = BASE_TIME.split(':').map(Number);
+            const baseSeconds = bh * 3600 + bm * 60 + bs;
+            const totalSeconds = baseSeconds + (trigger * SECONDS_PER_TRIGGER);
+            const wrapped = totalSeconds % 86400;
+            const h = Math.floor(wrapped / 3600);
+            const m = Math.floor((wrapped % 3600) / 60);
+            const s = wrapped % 60;
+            return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+        }
+
+        // ===== HELPER FUNCTIONS =====
+        function formatCell(value) {
+            if (value === "0" || value === 0 || value === "" || value == null) {
+                return '<span class="zero-cell">—</span>';
+            }
+            return value;
+        }
+
+        function getRevanBadge(revan) {
+            if (!revan || revan.trim() === "") return '<span class="text-muted">—</span>';
+            if (revan.includes("TMC")) return `<span class="badge bg-success">${revan}</span>`;
+            if (revan.includes("TMT")) return `<span class="badge bg-warning text-dark">${revan}</span>`;
+            return `<span class="badge bg-primary">${revan}</span>`;
+        }
+
+        function getDockBadge(dock) {
+            if (!dock || dock.trim() === "") return '<span class="text-muted">—</span>';
+            let color = "bg-info text-dark";
+            if (dock.includes("Norte")) color = "bg-danger";
+            else if (dock.includes("DVR")) color = "bg-primary";
+            return `<span class="badge ${color}">${dock}</span>`;
+        }
+
+        function getObsBadge(obs) {
+            if (!obs || obs.trim() === "") return '<span class="text-muted">—</span>';
+            if (obs.includes("ROBBING")) {
+                return `<span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>${obs}</span>`;
+            }
+            if (obs.includes("ESTUFAR")) {
+                return `<span class="badge bg-warning text-dark"><i class="bi bi-box-fill me-1"></i>${obs}</span>`;
+            }
+            return `<span class="badge bg-secondary">${obs}</span>`;
+        }
+
+        // ===== LOAD ContainerSchedule.json =====
+        async function loadSchedule() {
+            try {
+                const response = await fetch(SCHEDULE_URL + '?t=' + Date.now());
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const json = await response.json();
+
+                externalData.scheduleTimestamp = json.Timestamp || '';
+                externalData.totalRows = json.TotalRows || 0;
+
+                // Map + enrich each row
+                andonData = (json.Data || []).map(item => ({
+                    dateKey: getDateKey(item.data),        // e.g., "2026-08-31"
+                    dateDisplay: formatDate(item.data),    // e.g., "31/08/2026"
+                    sequencia: item.sequencia,
+                    renban: item.renban || '',
+                    container: item.container || '',
+                    transportadora: item.transportadora || '',
+                    revan: item.revan || '',
+                    armador: item.armador || '',
+                    dock: item.dock || '',
+                    observacao: item.observacao || ''
+                }));
+
+                console.log(`✅ Loaded ${andonData.length} total rows`);
+
+                // Build list of unique dates, sorted ascending
+                availableDates = [...new Set(andonData.map(i => i.dateKey))]
+                    .filter(k => k)
+                    .sort();
+
+                console.log(`📅 Found ${availableDates.length} unique days`);
+
+                populateDateSelector();
+                populateDockFilter();
+                applyFilters();
+            } catch (error) {
+                console.error('❌ Error loading ContainerSchedule.json:', error);
+                document.getElementById('tableBody').innerHTML = `
+            <tr>
+                <td colspan="11" class="text-center py-4 text-danger">
+                    <i class="bi bi-exclamation-triangle fs-1 d-block mb-2"></i>
+                    Erro ao carregar ContainerSchedule.json<br>
+                    <small class="text-muted">${error.message}</small>
+                </td>
+            </tr>`;
+            }
+        }
+
+        // ===== LOAD output.json =====
+        async function loadOutputData() {
+            try {
+                const response = await fetch(OUTPUT_URL + '?t=' + Date.now());
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                externalData.assembly = parseInt(data.Assembly, 10) || 0;
+                externalData.timestamp = data.Timestamp || '';
+                externalData.panelId = data.PanelId || '';
+
+                updateHeaderInfo();
+                applyFilters();
+            } catch (error) {
+                console.error('❌ Error loading output.json:', error);
+            }
+        }
+
+        // ===== POPULATE DATE SELECTOR =====
+        function populateDateSelector() {
+            const sel = document.getElementById('dateSelector');
+            const currentValue = sel.value;
+
+            if (availableDates.length === 0) {
+                sel.innerHTML = '<option value="">Nenhuma data</option>';
+                return;
+            }
+
+            // Build options with display label
+            sel.innerHTML = availableDates.map(key => {
+                // Find the display version for this key
+                const row = andonData.find(r => r.dateKey === key);
+                const display = row ? row.dateDisplay : key;
+                return `<option value="${key}">${display}</option>`;
+            }).join('');
+
+            // Determine which date to select:
+            // 1. Keep current selection if valid
+            // 2. Otherwise pick today, or the closest future date
+            if (currentValue && availableDates.includes(currentValue)) {
+                sel.value = currentValue;
+            } else {
+                const today = new Date().toISOString().slice(0, 10);
+                const defaultDate = availableDates.find(d => d >= today) || availableDates[0];
+                sel.value = defaultDate;
+            }
+            selectedDate = sel.value;
+        }
+
+        // ===== POPULATE DOCK FILTER (based on selected day) =====
+        function populateDockFilter() {
+            const dockFilter = document.getElementById('dockFilter');
+            const currentValue = dockFilter.value;
+            const dayData = andonData.filter(i => i.dateKey === selectedDate);
+            const uniqueDocks = [...new Set(dayData.map(i => i.dock).filter(d => d))].sort();
+
+            dockFilter.innerHTML = '<option value="">Todos os Docks</option>' +
+                uniqueDocks.map(d => `<option value="${d}">${d}</option>`).join('');
+
+            if (uniqueDocks.includes(currentValue)) dockFilter.value = currentValue;
+        }
+
+        // ===== UPDATE HEADER INFO =====
+        function updateHeaderInfo() {
+            const headerInfo = document.getElementById('headerInfo');
+            const displayDate = selectedDate
+                ? (andonData.find(r => r.dateKey === selectedDate)?.dateDisplay || selectedDate)
+                : '';
+
+            headerInfo.innerHTML = `
+        <span class="info-badge">
+            <i class="bi bi-calendar-event"></i> ${displayDate || 'Programação Diária'}
+        </span>
+        ${externalData.panelId ? `
+            <span class="info-badge">
+                <i class="bi bi-hdd-network"></i> Panel ${externalData.panelId}
+            </span>
+        ` : ''}
+        ${externalData.timestamp ? `
+            <span class="info-badge">
+                <i class="bi bi-clock"></i> ${externalData.timestamp}
+            </span>
+        ` : ''}
+    `;
+
+            const lastUpdateEl = document.getElementById('lastUpdateInfo');
+            if (externalData.timestamp) {
+                lastUpdateEl.innerHTML = `| <i class="bi bi-arrow-clockwise"></i> Última atualização: <strong>${externalData.timestamp}</strong>`;
+            }
+        }
+
+        // ===== RENDER TABLE =====
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `
+            <tr>
+                <td colspan="11" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    Nenhum registro encontrado
+                </td>
+            </tr>`;
+                updateStats(0, externalData.assembly);
+                return;
+            }
+
+            const rows = data.map((item, i) => {
+                // Trigger is calculated per-day (resets each day, sequential order)
+                const trigger = (i + 1) * TRIGGER_INCREMENT;
+                const horario = calculateHorario(trigger);
+                return `
+            <tr>
+                <td>${item.dateDisplay}</td>
+                <td><span class="seq-badge">${item.sequencia}</span></td>
+                <td><span class="trigger-badge">${trigger}</span></td>
+                <td><strong>${item.renban}</strong></td>
+                <td>${item.container}</td>
+                <td>${formatCell(item.transportadora)}</td>
+                <td>${getRevanBadge(item.revan)}</td>
+                <td>${formatCell(item.armador)}</td>
+                <td>${getDockBadge(item.dock)}</td>
+                <td class="time-cell">${horario}</td>
+                <td>${getObsBadge(item.observacao)}</td>
+            </tr>
+        `;
+            }).join('');
+
+            tbody.innerHTML = rows;
+            updateStats(data.length, externalData.assembly);
+        }
+
+        // ===== UPDATE STATS =====
+        function updateStats(containers, assembly) {
+            document.getElementById('totalContainers').textContent = containers;
+            document.getElementById('assemblyTotal').textContent = assembly.toLocaleString('pt-BR');
+            document.getElementById('totalCount').textContent = containers;
+            document.getElementById('footerAssembly').textContent = assembly.toLocaleString('pt-BR');
+        }
+
+        // ===== FILTER =====
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const dockValue = document.getElementById('dockFilter').value;
+
+            // Sort by sequencia within the day
+            const filtered = andonData
+                .filter(item => item.dateKey === selectedDate)
+                .filter(item => {
+                    const matchesSearch = !searchTerm || Object.values(item).some(v =>
+                        String(v).toLowerCase().includes(searchTerm)
+                    );
+                    const matchesDock = !dockValue || item.dock === dockValue;
+                    return matchesSearch && matchesDock;
+                })
+                .sort((a, b) => (a.sequencia || 0) - (b.sequencia || 0));
+
+            renderTable(filtered);
+            updateHeaderInfo();
+        }
+
+        // ===== EVENT LISTENERS =====
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('dockFilter').addEventListener('change', applyFilters);
+        document.getElementById('dateSelector').addEventListener('change', (e) => {
+            selectedDate = e.target.value;
+            populateDockFilter();   // Refresh docks for this day
+            applyFilters();
+        });
+
+        // ===== INITIAL LOAD =====
+        async function init() {
+            await loadSchedule();
+            await loadOutputData();
+        }
+        init();
+
+        // ===== AUTO-REFRESH =====
+        setInterval(loadSchedule, AUTO_REFRESH_MS * 2);   // Every 60s
+        setInterval(loadOutputData, AUTO_REFRESH_MS);     // Every 30s
+    </script>
+
+</body>
+
+</html>
