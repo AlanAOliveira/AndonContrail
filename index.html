@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -120,7 +120,7 @@
                             <h2 class="mb-2"><i class="bi bi-box-seam-fill me-2"></i>Andon Devanning</h2>
                             <div class="d-flex flex-wrap gap-2" id="headerInfo">
                                 <span class="info-badge">
-                                    <i class="bi bi-calendar-event"></i> 13/Ago - Programação Diária
+                                    <i class="bi bi-calendar-event"></i> Programação Diária
                                 </span>
                             </div>
                         </div>
@@ -208,10 +208,14 @@
 
     <script>
         // ===== CONFIGURATION =====
-        const TRIGGER_INCREMENT = 50;
         const AUTO_REFRESH_MS = 30000;
-        const BASE_TIME = "06:12:00";
-        const SECONDS_PER_TRIGGER = 108;
+        const BASE_TIME = "06:12:00";              // Início do dia produtivo
+        const SECONDS_PER_TRIGGER = 108;           // 108s = +1 no trigger
+        // Segundos correspondentes ao início do dia produtivo (06:12:00)
+        const BASE_SECONDS = (() => {
+            const [h, m, s] = BASE_TIME.split(':').map(Number);
+            return h * 3600 + m * 60 + s;          // 22320
+        })();
         const SCHEDULE_URL = 'ContainerSchedule.json';
         const OUTPUT_URL = 'output.json';
 
@@ -227,7 +231,7 @@
             totalRows: 0
         };
 
-        // ===== EXCEL SERIAL DATE → Date object =====
+        // ===== EXCEL SERIAL DATE -> Date object =====
         function excelSerialToDate(serial) {
             if (isNaN(serial) || String(serial).includes('/')) return null;
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
@@ -236,7 +240,6 @@
 
         // ===== FORMAT DATE AS DD/MM/YYYY =====
         function formatDate(dateInput) {
-            // If it's an Excel serial number
             const asDate = excelSerialToDate(dateInput);
             if (asDate) {
                 const dd = String(asDate.getUTCDate()).padStart(2, '0');
@@ -244,7 +247,6 @@
                 const yyyy = asDate.getUTCFullYear();
                 return `${dd}/${mm}/${yyyy}`;
             }
-            // Already a string
             return String(dateInput);
         }
 
@@ -255,35 +257,61 @@
             return String(dateInput);
         }
 
-        // ===== CALCULATE DELIVERY TIME =====
-        function calculateHorario(trigger) {
-            const [bh, bm, bs] = BASE_TIME.split(':').map(Number);
-            const baseSeconds = bh * 3600 + bm * 60 + bs;
-            const totalSeconds = baseSeconds + (trigger * SECONDS_PER_TRIGGER);
-            const wrapped = totalSeconds % 86400;
+        // ===== LOCAL TODAY (YYYY-MM-DD) - avoids UTC off-by-one near midnight =====
+        function getLocalTodayKey() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // ===== EXCEL TIME (fração do dia) -> SEGUNDOS DO DIA =====
+        // Ex.: "0.291666666666667" -> 07:00:00 -> 25200 segundos.
+        // Se vier um datetime completo (parte inteira = dias), usa só a fração.
+        function excelTimeToSeconds(value) {
+            const num = Number(value);
+            if (value === '' || value == null || isNaN(num)) return null;
+            const frac = num - Math.floor(num);          // apenas a hora do dia
+            return Math.round(frac * 86400);
+        }
+
+        // ===== SEGUNDOS -> HH:MM:SS =====
+        function secondsToHHMMSS(totalSeconds) {
+            const wrapped = ((totalSeconds % 86400) + 86400) % 86400;
             const h = Math.floor(wrapped / 3600);
             const m = Math.floor((wrapped % 3600) / 60);
             const s = wrapped % 60;
             return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
         }
 
+        // ===== HORÁRIO (segundos do dia) -> TRIGGER =====
+        // 06:12:00 => trigger 1; +1 a cada 108s.
+        // Dia produtivo: 06:12 até 06:11 do dia seguinte, então horários
+        // antes das 06:12 pertencem ao mesmo dia produtivo (somam +24h).
+        function calculateTriggerFromSeconds(timeSeconds) {
+            let elapsed = timeSeconds - BASE_SECONDS;
+            if (elapsed < 0) elapsed += 86400;           // vira para o dia seguinte
+            return Math.round(elapsed / SECONDS_PER_TRIGGER) + 1;
+        }
+
         // ===== HELPER FUNCTIONS =====
         function formatCell(value) {
             if (value === "0" || value === 0 || value === "" || value == null) {
-                return '<span class="zero-cell">—</span>';
+                return '<span class="zero-cell">&mdash;</span>';
             }
             return value;
         }
 
         function getRevanBadge(revan) {
-            if (!revan || revan.trim() === "") return '<span class="text-muted">—</span>';
+            if (!revan || revan.trim() === "") return '<span class="text-muted">&mdash;</span>';
             if (revan.includes("TMC")) return `<span class="badge bg-success">${revan}</span>`;
             if (revan.includes("TMT")) return `<span class="badge bg-warning text-dark">${revan}</span>`;
             return `<span class="badge bg-primary">${revan}</span>`;
         }
 
         function getDockBadge(dock) {
-            if (!dock || dock.trim() === "") return '<span class="text-muted">—</span>';
+            if (!dock || dock.trim() === "") return '<span class="text-muted">&mdash;</span>';
             let color = "bg-info text-dark";
             if (dock.includes("Norte")) color = "bg-danger";
             else if (dock.includes("DVR")) color = "bg-primary";
@@ -291,7 +319,7 @@
         }
 
         function getObsBadge(obs) {
-            if (!obs || obs.trim() === "") return '<span class="text-muted">—</span>';
+            if (!obs || obs.trim() === "") return '<span class="text-muted">&mdash;</span>';
             if (obs.includes("ROBBING")) {
                 return `<span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>${obs}</span>`;
             }
@@ -311,34 +339,42 @@
                 externalData.scheduleTimestamp = json.Timestamp || '';
                 externalData.totalRows = json.TotalRows || 0;
 
-                // Map + enrich each row
-                andonData = (json.Data || []).map(item => ({
-                    dateKey: getDateKey(item.data),        // e.g., "2026-08-31"
-                    dateDisplay: formatDate(item.data),    // e.g., "31/08/2026"
-                    sequencia: item.sequencia,
-                    renban: item.renban || '',
-                    container: item.container || '',
-                    transportadora: item.transportadora || '',
-                    revan: item.revan || '',
-                    armador: item.armador || '',
-                    dock: item.dock || '',
-                    observacao: item.observacao || ''
-                }));
-
-                console.log(`✅ Loaded ${andonData.length} total rows`);
+                // Map + enrich each row.
+                // ===== O horário agora vem do arquivo (datetime do Excel) e o
+                // Trigger é derivado DELE, calculado apenas aqui (na importação). =====
+                andonData = (json.Data || []).map(item => {
+                    const timeSeconds = excelTimeToSeconds(item.horario);
+                    return {
+                        dateKey: getDateKey(item.data),        // e.g., "2026-08-31"
+                        dateDisplay: formatDate(item.data),    // e.g., "31/08/2026"
+                        sequencia: item.sequencia,
+                        renban: item.renban || '',
+                        container: item.container || '',
+                        transportadora: item.transportadora || '',
+                        revan: item.revan || '',
+                        armador: item.armador || '',
+                        dock: item.dock || '',
+                        observacao: item.observacao || '',
+                        // Horário convertido do Excel -> HH:MM:SS
+                        horario: timeSeconds != null ? secondsToHHMMSS(timeSeconds) : '',
+                        // Trigger derivado do horário (fixo após a importação)
+                        trigger: timeSeconds != null ? calculateTriggerFromSeconds(timeSeconds) : '—'
+                    };
+                });
 
                 // Build list of unique dates, sorted ascending
                 availableDates = [...new Set(andonData.map(i => i.dateKey))]
                     .filter(k => k)
                     .sort();
 
-                console.log(`📅 Found ${availableDates.length} unique days`);
+                console.log(`Loaded ${andonData.length} total rows`);
+                console.log(`Found ${availableDates.length} unique days`);
 
                 populateDateSelector();
                 populateDockFilter();
                 applyFilters();
             } catch (error) {
-                console.error('❌ Error loading ContainerSchedule.json:', error);
+                console.error('Error loading ContainerSchedule.json:', error);
                 document.getElementById('tableBody').innerHTML = `
             <tr>
                 <td colspan="11" class="text-center py-4 text-danger">
@@ -364,7 +400,7 @@
                 updateHeaderInfo();
                 applyFilters();
             } catch (error) {
-                console.error('❌ Error loading output.json:', error);
+                console.error('Error loading output.json:', error);
             }
         }
 
@@ -378,9 +414,7 @@
                 return;
             }
 
-            // Build options with display label
             sel.innerHTML = availableDates.map(key => {
-                // Find the display version for this key
                 const row = andonData.find(r => r.dateKey === key);
                 const display = row ? row.dateDisplay : key;
                 return `<option value="${key}">${display}</option>`;
@@ -388,11 +422,11 @@
 
             // Determine which date to select:
             // 1. Keep current selection if valid
-            // 2. Otherwise pick today, or the closest future date
+            // 2. Otherwise pick today (LOCAL), or the closest future date
             if (currentValue && availableDates.includes(currentValue)) {
                 sel.value = currentValue;
             } else {
-                const today = new Date().toISOString().slice(0, 10);
+                const today = getLocalTodayKey();
                 const defaultDate = availableDates.find(d => d >= today) || availableDates[0];
                 sel.value = defaultDate;
             }
@@ -458,10 +492,11 @@
                 return;
             }
 
-            const rows = data.map((item, i) => {
-                // Trigger is calculated per-day (resets each day, sequential order)
-                const trigger = (i + 1) * TRIGGER_INCREMENT;
-                const horario = calculateHorario(trigger);
+            const rows = data.map((item) => {
+                // ===== FIX: use the STABLE trigger/horario computed at load time,
+                // so filtering by search or dock never changes these values. =====
+                const trigger = item.trigger;
+                const horario = item.horario;
                 return `
             <tr>
                 <td>${item.dateDisplay}</td>
@@ -496,7 +531,6 @@
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const dockValue = document.getElementById('dockFilter').value;
 
-            // Sort by sequencia within the day
             const filtered = andonData
                 .filter(item => item.dateKey === selectedDate)
                 .filter(item => {
