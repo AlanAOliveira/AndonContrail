@@ -105,6 +105,17 @@
             align-items: center;
             gap: 6px;
         }
+
+        /* ===== Upload section ===== */
+        .upload-section {
+            background: #eef6ff;
+            border-bottom: 1px solid #d6e6ff;
+        }
+
+        .upload-status {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -133,6 +144,30 @@
                                 <div class="label"><i class="bi bi-gear-fill me-1"></i>Assembly Total</div>
                                 <div class="value" id="assemblyTotal">0</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Upload Inventário Yard ===== -->
+                <div class="p-3 upload-section">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-auto">
+                            <label class="fw-semibold mb-0">
+                                <i class="bi bi-file-earmark-excel-fill text-success me-1"></i>
+                                Inventário Yard
+                            </label>
+                        </div>
+                        <div class="col-md-5">
+                            <input type="file" class="form-control" id="inventarioFile"
+                                accept=".xlsx,.xls,.xlsm,.csv">
+                        </div>
+                        <div class="col-md-auto">
+                            <button class="btn btn-success" id="uploadBtn" onclick="uploadInventario()">
+                                <i class="bi bi-cloud-arrow-up-fill me-1"></i> Enviar para SharePoint
+                            </button>
+                        </div>
+                        <div class="col-md">
+                            <span id="uploadStatus" class="upload-status text-muted"></span>
                         </div>
                     </div>
                 </div>
@@ -218,6 +253,10 @@
         })();
         const SCHEDULE_URL = 'ContainerSchedule.json';
         const OUTPUT_URL = 'output.json';
+
+        // ===== Power Automate HTTP trigger URL (Inventário Yard upload) =====
+        // Cole aqui a URL "When an HTTP request is received" do seu fluxo.
+        const INVENTARIO_UPLOAD_URL = 'https://default3855fb14c2214399b3f897d96a4ce4.5d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/26/workflows/f46a47f89c8d42679288cd37a48c3762/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=VpFXRYpyrwXLuVfIrUgJ_AKpwJ8voalIAC7KvPL3btc';
 
         // ===== STATE =====
         let andonData = [];           // ALL rows (all days)
@@ -327,6 +366,74 @@
                 return `<span class="badge bg-warning text-dark"><i class="bi bi-box-fill me-1"></i>${obs}</span>`;
             }
             return `<span class="badge bg-secondary">${obs}</span>`;
+        }
+
+        // ===== UPLOAD INVENTÁRIO YARD -> POWER AUTOMATE -> SHAREPOINT =====
+        function uploadInventario() {
+            const fileInput = document.getElementById('inventarioFile');
+            const statusEl = document.getElementById('uploadStatus');
+            const btn = document.getElementById('uploadBtn');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                statusEl.className = 'upload-status text-danger';
+                statusEl.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Selecione um arquivo primeiro.';
+                return;
+            }
+
+            if (!INVENTARIO_UPLOAD_URL || INVENTARIO_UPLOAD_URL.startsWith('COLE_AQUI')) {
+                statusEl.className = 'upload-status text-danger';
+                statusEl.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Configure a URL do Power Automate (INVENTARIO_UPLOAD_URL).';
+                return;
+            }
+
+            btn.disabled = true;
+            statusEl.className = 'upload-status text-primary';
+            statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enviando...';
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                // Extrai apenas a parte base64 (remove "data:...;base64,")
+                const base64Content = String(e.target.result).split(',')[1];
+
+                // Monta o nome do arquivo: inventario_yard_YYYY-MM-DD.<ext>
+                const ext = (file.name.split('.').pop() || 'xlsx').toLowerCase();
+                const stamp = getLocalTodayKey();
+                const fileName = `inventario_yard_${stamp}.${ext}`;
+
+                const payload = {
+                    fileName: fileName,
+                    originalName: file.name,
+                    contentType: file.type ||
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    fileContent: base64Content   // base64 -> use base64ToBinary() no fluxo
+                };
+
+                try {
+                    const response = await fetch(INVENTARIO_UPLOAD_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    statusEl.className = 'upload-status text-success';
+                    statusEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Enviado com sucesso: ${fileName}`;
+                    fileInput.value = '';
+                } catch (error) {
+                    statusEl.className = 'upload-status text-danger';
+                    statusEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i>Falha ao enviar: ${error.message}`;
+                } finally {
+                    btn.disabled = false;
+                }
+            };
+            reader.onerror = function () {
+                statusEl.className = 'upload-status text-danger';
+                statusEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Erro ao ler o arquivo.';
+                btn.disabled = false;
+            };
+            reader.readAsDataURL(file);
         }
 
         // ===== LOAD ContainerSchedule.json =====
