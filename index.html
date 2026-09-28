@@ -249,13 +249,12 @@
         // Segundos correspondentes ao início do dia produtivo (06:12:00)
         const BASE_SECONDS = (() => {
             const [h, m, s] = BASE_TIME.split(':').map(Number);
-            return h * 3600 + m * 60 + s;          // 22320
+            return h * 3600 + m * 60 + s;          
         })();
         const SCHEDULE_URL = 'ContainerSchedule.json';
         const OUTPUT_URL = 'output.json';
 
         // ===== Power Automate HTTP trigger URL (Inventário Yard upload) =====
-        // Cole aqui a URL "When an HTTP request is received" do seu fluxo.
         const INVENTARIO_UPLOAD_URL = 'https://default3855fb14c2214399b3f897d96a4ce4.5d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/26/workflows/f46a47f89c8d42679288cd37a48c3762/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=VpFXRYpyrwXLuVfIrUgJ_AKpwJ8voalIAC7KvPL3btc';
 
         // ===== STATE =====
